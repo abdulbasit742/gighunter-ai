@@ -8,9 +8,10 @@ import { sendDigest } from '../src/lib/digest.js';
 import { learnModel } from '../src/lib/adaptive.js';
 import { scanGig } from '../src/lib/scamFilter.js';
 import { rateVerdict } from '../src/lib/budget.js';
+import { pushTopGigs } from '../src/lib/clickup.js';
 import { logger } from '../src/lib/logger.js';
 
-export async function runHunt({ useLLM = true, useSemantic = true, digest = true } = {}) {
+export async function runHunt({ useLLM = true, useSemantic = true, digest = true, clickup = true } = {}) {
   const profile = loadProfile();
   const minDraft = Number(process.env.MIN_SCORE_TO_DRAFT || 65);
 
@@ -28,7 +29,6 @@ export async function runHunt({ useLLM = true, useSemantic = true, digest = true
     let finalScore = score;
     if (scan.verdict === 'avoid') { finalScore = Math.min(finalScore, 25); flaggedCount++; }
     else if (scan.verdict === 'caution') { finalScore = Math.max(0, finalScore - 15); }
-    // Rate intelligence nudges score: great pay up, low pay down.
     if (rate.verdict === 'great') finalScore = Math.min(100, finalScore + 8);
     else if (rate.verdict === 'low') finalScore = Math.max(0, finalScore - 10);
 
@@ -36,14 +36,10 @@ export async function runHunt({ useLLM = true, useSemantic = true, digest = true
     if (rate.verdict !== 'unknown') rReasons.push(`pay: ${rate.note}`);
 
     scored.push({
-      ...gig,
-      score: finalScore,
-      reasons: rReasons,
+      ...gig, score: finalScore, reasons: rReasons,
       redFlags: [...redFlags, ...scan.flags],
-      risk: scan.risk,
-      verdict: scan.verdict,
-      rateVerdict: rate.verdict,
-      payNote: rate.note,
+      risk: scan.risk, verdict: scan.verdict,
+      rateVerdict: rate.verdict, payNote: rate.note,
     });
   }
   scored.sort((a, b) => b.score - a.score);
@@ -60,13 +56,15 @@ export async function runHunt({ useLLM = true, useSemantic = true, digest = true
   let digestResult = null;
   if (digest) digestResult = await sendDigest({ minScore: minDraft });
 
-  logger.info(`hunt: ${scored.length} scored, ${added} new, ${flaggedCount} risky, ${drafted.length} drafted`);
+  // Push best NEW gigs to ClickUp (no-op unless configured).
+  let clickupPushed = 0;
+  if (clickup) clickupPushed = await pushTopGigs(store.listGigs({ status: 'new' }), { minScore: minDraft });
+
+  logger.info(`hunt: ${scored.length} scored, ${added} new, ${flaggedCount} risky, ${drafted.length} drafted, ${clickupPushed} -> clickup`);
   return {
     huntedAt: new Date().toISOString(),
-    totalGigs: total,
-    newGigs: added,
-    riskyGigs: flaggedCount,
-    learnedFrom: model.samples,
+    totalGigs: total, newGigs: added, riskyGigs: flaggedCount,
+    learnedFrom: model.samples, clickupPushed,
     topGigs: scored.slice(0, 10).map((g) => ({ id: g.id, title: g.title, score: g.score, url: g.url, source: g.source, verdict: g.verdict, payNote: g.payNote })),
     draftedProposals: drafted,
     digest: digestResult ? { count: digestResult.count } : null,
