@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>GigHunter AI</title>
+<style>
+  :root { --bg:#0b0f1a; --card:#141a2a; --line:#243049; --txt:#e7ecf5; --mut:#8b97b0; --acc:#5b8cff; --ok:#36d399; --warn:#fbbd23; --bad:#f87272; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:15px/1.5 -apple-system,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--txt); }
+  header { padding:22px 28px; border-bottom:1px solid var(--line); display:flex; align-items:center; gap:12px; }
+  header h1 { font-size:20px; margin:0; }
+  .badge { font-size:12px; color:var(--mut); border:1px solid var(--line); padding:2px 8px; border-radius:999px; }
+  main { max-width:1000px; margin:0 auto; padding:24px 28px; }
+  .row { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:20px; }
+  button { background:var(--acc); color:#fff; border:0; padding:10px 16px; border-radius:8px; font-weight:600; cursor:pointer; }
+  button.ghost { background:transparent; border:1px solid var(--line); color:var(--txt); }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:14px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px; }
+  .card h3 { margin:0 0 6px; font-size:15px; }
+  .pill { display:inline-block; font-size:11px; padding:2px 8px; border-radius:999px; font-weight:700; }
+  .pill.public { background:rgba(54,211,153,.15); color:var(--ok); }
+  .pill.api { background:rgba(251,189,35,.15); color:var(--warn); }
+  .pill.manual { background:rgba(139,151,176,.15); color:var(--mut); }
+  .note { color:var(--mut); font-size:13px; margin-top:8px; }
+  .gig { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px; margin-bottom:10px; }
+  .gig .score { font-weight:800; color:var(--acc); }
+  .gig a { color:var(--acc); text-decoration:none; }
+  .secthead { display:flex; align-items:center; justify-content:space-between; margin:26px 0 12px; }
+  .secthead h2 { font-size:16px; margin:0; }
+  .status { font-size:13px; color:var(--mut); }
+  input[type=checkbox] { transform:scale(1.2); margin-right:8px; }
+  label.chk { display:flex; align-items:center; cursor:pointer; }
+  .empty { color:var(--mut); padding:20px; text-align:center; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🎯 GigHunter AI</h1>
+  <span class="badge" id="llmBadge">llm: …</span>
+</header>
+<main>
+  <div class="row">
+    <button id="huntBtn">▶ Run hunt now</button>
+    <button class="ghost" id="doctorBtn">🩺 Check platforms</button>
+    <button class="ghost" id="saveBtn">💾 Save selected platforms</button>
+    <span class="status" id="status"></span>
+  </div>
+
+  <div class="secthead"><h2>Platforms</h2><span class="status" id="platStatus"></span></div>
+  <div class="grid" id="platforms"></div>
+
+  <div class="secthead"><h2>Top gigs</h2><span class="status" id="gigStatus"></span></div>
+  <div id="gigs"><div class="empty">No gigs yet. Hit “Run hunt now”.</div></div>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const setStatus = (t) => $('status').textContent = t;
+
+async function loadHealth() {
+  const h = await fetch('/health').then(r => r.json());
+  $('llmBadge').textContent = `llm: ${h.llm.provider}${h.llm.dryRun ? ' (dry-run)' : ''}`;
+}
+
+async function loadPlatforms() {
+  const { platforms, enabled } = await fetch('/api/platforms').then(r => r.json());
+  $('platforms').innerHTML = platforms.map(p => `
+    <div class="card">
+      <h3>${p.name} <span class="pill ${p.mode}">${p.mode}</span></h3>
+      <label class="chk">
+        <input type="checkbox" data-key="${p.key}" ${enabled.includes(p.key) ? 'checked' : ''} ${p.mode==='manual'?'disabled':''}/>
+        ${p.mode==='manual' ? 'drafting-only' : 'enable'}
+      </label>
+      <div class="note">${p.notes}</div>
+    </div>`).join('');
+  $('platStatus').textContent = `${enabled.length} enabled`;
+}
+
+async function loadGigs() {
+  const { gigs } = await fetch('/gigs').then(r => r.json());
+  if (!gigs.length) { $('gigs').innerHTML = '<div class="empty">No gigs yet. Hit “Run hunt now”.</div>'; return; }
+  $('gigs').innerHTML = gigs.slice(0, 25).map(g => `
+    <div class="gig">
+      <span class="score">${g.score ?? '–'}</span>
+      &nbsp; <strong>${g.title}</strong>
+      <span class="note">· ${g.source}</span>
+      <div class="note">${(g.reasons||[]).join(' · ')}</div>
+      ${g.url ? `<a href="${g.url}" target="_blank">open gig →</a>` : ''}
+    </div>`).join('');
+  $('gigStatus').textContent = `${gigs.length} total`;
+}
+
+$('huntBtn').onclick = async () => {
+  setStatus('hunting…');
+  await fetch('/hunt', { method: 'POST' });
+  await loadGigs();
+  setStatus('hunt complete ✓');
+};
+
+$('doctorBtn').onclick = async () => {
+  setStatus('checking platforms…');
+  const r = await fetch('/api/doctor').then(r => r.json());
+  setStatus(r.results.map(x => `${x.name}:${x.status}`).join('  ·  '));
+};
+
+$('saveBtn').onclick = async () => {
+  const keys = [...document.querySelectorAll('input[data-key]:checked')].map(i => i.dataset.key);
+  await fetch('/api/platforms', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ platforms: keys }) });
+  setStatus('platforms saved ✓');
+  loadPlatforms();
+};
+
+loadHealth(); loadPlatforms(); loadGigs();
+</script>
+</body>
+</html>

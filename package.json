@@ -1,17 +1,18 @@
 {
   "name": "gighunter-ai",
-  "version": "1.1.0",
-  "description": "Autonomous freelancing agent: hunts public gigs across 10 platforms, scores them with local AI, drafts proposals.",
+  "version": "1.2.0",
+  "description": "Autonomous freelancing agent: hunts public gigs across 10 platforms, scores them with local AI, drafts proposals. One-command setup + web dashboard.",
   "type": "module",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
+    "setup": "node scripts/setup.js",
     "hunt": "node scripts/hunt.js",
     "doctor": "node scripts/doctor.js",
     "wire": "node scripts/wire-all.js",
     "test": "node --test"
   },
-  "keywords": ["freelance", "ai", "agent", "ollama", "gigs", "proposals", "automation"],
+  "keywords": ["freelance", "ai", "agent", "ollama", "gigs", "proposals", "automation", "dashboard"],
   "author": "Abdul Basit",
   "license": "MIT",
   "engines": { "node": ">=18" },
