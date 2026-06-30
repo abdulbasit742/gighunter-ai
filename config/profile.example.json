@@ -1,0 +1,13 @@
+{
+  "name": "Abdul Basit",
+  "headline": "Full-stack & AI SaaS developer",
+  "skills": ["node.js", "react", "postgres", "redis", "saas", "ai", "whatsapp api", "stripe", "prisma"],
+  "minBudgetUsd": 300,
+  "preferredKeywords": ["saas", "automation", "ai", "whatsapp", "broadcast", "dashboard", "api", "integration"],
+  "avoidKeywords": ["wordpress only", "unpaid", "equity only", "data entry"],
+  "sources": [
+    { "name": "RemoteOK", "type": "json", "url": "https://remoteok.com/api" },
+    { "name": "WeWorkRemotely-Programming", "type": "rss", "url": "https://weworkremotely.com/categories/remote-programming-jobs.rss" },
+    { "name": "HN-WhoIsHiring", "type": "rss", "url": "https://hnrss.org/newest?q=hiring+contract" }
+  ]
+}
