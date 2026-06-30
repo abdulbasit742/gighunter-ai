@@ -3,6 +3,7 @@
   "headline": "Full-stack & AI SaaS developer",
   "skills": ["node.js", "react", "postgres", "redis", "saas", "ai", "whatsapp api", "stripe", "prisma"],
   "minBudgetUsd": 300,
+  "targetHourlyUsd": 35,
   "preferredKeywords": ["saas", "automation", "ai", "whatsapp", "broadcast", "dashboard", "api", "integration"],
   "avoidKeywords": ["wordpress only", "unpaid", "equity only", "data entry"],
 
