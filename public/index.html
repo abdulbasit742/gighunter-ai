@@ -32,6 +32,8 @@
   .pill.public { background:rgba(54,211,153,.15); color:var(--ok); }
   .pill.api { background:rgba(251,189,35,.15); color:var(--warn); }
   .pill.manual { background:rgba(139,151,176,.15); color:var(--mut); }
+  .pill.avoid { background:rgba(248,114,114,.18); color:var(--bad); }
+  .pill.caution { background:rgba(251,189,35,.18); color:var(--warn); }
   .note { color:var(--mut); font-size:12.5px; margin-top:6px; }
   .lead { background:var(--card); border:1px solid var(--line); border-radius:11px; padding:6px 14px; }
   .lead table { width:100%; border-collapse:collapse; font-size:13px; }
@@ -55,11 +57,14 @@
   .tabs button.on { background:var(--acc); color:#fff; border-color:var(--acc); }
   .chips { display:flex; gap:6px; flex-wrap:wrap; }
   .chip { font-size:12px; background:rgba(91,140,255,.12); color:var(--acc); border:1px solid var(--line); padding:3px 10px; border-radius:999px; }
-  dialog { background:var(--card); color:var(--txt); border:1px solid var(--line); border-radius:14px; padding:0; max-width:600px; width:92%; }
+  dialog { background:var(--card); color:var(--txt); border:1px solid var(--line); border-radius:14px; padding:0; max-width:760px; width:94%; }
   dialog .dhead { padding:16px 18px; border-bottom:1px solid var(--line); display:flex; justify-content:space-between; align-items:center; }
   dialog .dbody { padding:18px; }
-  dialog textarea { width:100%; min-height:220px; background:#0c1120; color:var(--txt); border:1px solid var(--line); border-radius:9px; padding:12px; font:13px/1.5 ui-monospace,monospace; resize:vertical; }
+  dialog textarea { width:100%; min-height:200px; background:#0c1120; color:var(--txt); border:1px solid var(--line); border-radius:9px; padding:12px; font:13px/1.5 ui-monospace,monospace; resize:vertical; }
   dialog::backdrop { background:rgba(0,0,0,.6); }
+  .vtabs { display:flex; gap:6px; margin-bottom:10px; }
+  .vtabs button { background:transparent; border:1px solid var(--line); color:var(--mut); text-transform:capitalize; }
+  .vtabs button.on { background:var(--acc); color:#fff; border-color:var(--acc); }
 </style>
 </head>
 <body>
@@ -103,11 +108,16 @@
 <dialog id="propDlg">
   <div class="dhead"><strong id="propTitle">Proposal</strong><button class="ghost sm" onclick="document.getElementById('propDlg').close()">✕</button></div>
   <div class="dbody">
+    <div class="row">
+      <button id="variantsBtn">✨ Generate 3 variants</button>
+      <span class="status" id="propStatus"></span>
+    </div>
+    <div class="vtabs" id="vtabs" style="display:none"></div>
     <textarea id="propBody"></textarea>
     <div class="row" style="margin-top:12px">
       <button id="copyBtn">📋 Copy</button>
+      <button class="ghost" id="saveProposalBtn">💾 Save as proposal</button>
       <button class="ghost" id="redraftBtn">♻ Re-draft</button>
-      <span class="status" id="propStatus"></span>
     </div>
   </div>
 </dialog>
@@ -117,6 +127,8 @@ const $ = (id) => document.getElementById(id);
 const setStatus = (t) => $('status').textContent = t;
 let filter = '';
 let currentGigId = null;
+let currentVariants = [];
+let currentTone = 'warm';
 const STAGE_COLORS = { new:'#5b8cff', seen:'#8b97b0', applied:'#fbbd23', won:'#36d399', rejected:'#f87272' };
 
 async function loadHealth() {
@@ -134,21 +146,17 @@ async function loadStats() {
     { n: (s.winRate*100).toFixed(0)+'%', l: 'win rate', win:true },
     { n: s.avgScore, l: 'avg score' },
   ].map(x => `<div class="stat ${x.win?'win':''}"><div class="n">${x.n}</div><div class="l">${x.l}</div></div>`).join('');
-
   const total = s.pipeline.reduce((a,p)=>a+p.count,0) || 1;
   $('pipeline').innerHTML = s.pipeline.filter(p=>p.count).map(p =>
     `<div style="flex:${p.count}; background:${STAGE_COLORS[p.stage]||'#5b8cff'}" title="${p.stage}: ${p.count}">${p.count>=total*0.08?p.stage:''}</div>`
   ).join('') || '<div style="flex:1;background:#243049;color:#8b97b0">no data</div>';
-
   if (s.platforms.length) {
     $('leaderboard').innerHTML = `<table>
       <tr><th>Platform</th><th>Total</th><th>Applied</th><th>Won</th><th>Win rate</th><th>Avg score</th></tr>
       ${s.platforms.map(p=>`<tr><td>${p.platform}</td><td>${p.total}</td><td>${p.applied}</td><td>${p.won}</td><td>${(p.winRate*100).toFixed(0)}%</td><td>${p.avgScore}</td></tr>`).join('')}
     </table>`;
   }
-  if (s.winningKeywords.length) {
-    $('keywords').innerHTML = s.winningKeywords.map(k=>`<span class="chip">${k.keyword} · ${k.count}</span>`).join('');
-  }
+  if (s.winningKeywords.length) $('keywords').innerHTML = s.winningKeywords.map(k=>`<span class="chip">${k.keyword} · ${k.count}</span>`).join('');
 }
 
 async function loadPlatforms() {
@@ -156,10 +164,7 @@ async function loadPlatforms() {
   $('platforms').innerHTML = platforms.map(p => `
     <div class="card">
       <h3>${p.name} <span class="pill ${p.mode}">${p.mode}</span></h3>
-      <label class="chk">
-        <input type="checkbox" data-key="${p.key}" ${enabled.includes(p.key) ? 'checked' : ''} ${p.mode==='manual'?'disabled':''}/>
-        ${p.mode==='manual' ? 'drafting-only' : 'enable'}
-      </label>
+      <label class="chk"><input type="checkbox" data-key="${p.key}" ${enabled.includes(p.key) ? 'checked' : ''} ${p.mode==='manual'?'disabled':''}/> ${p.mode==='manual' ? 'drafting-only' : 'enable'}</label>
       <div class="note">${p.notes}</div>
     </div>`).join('');
   $('platStatus').textContent = `${enabled.length} enabled`;
@@ -176,7 +181,9 @@ async function loadGigs() {
       <span class="score">${g.score ?? '–'}</span>
       &nbsp; <strong>${g.title}</strong>
       <span class="note">· ${g.source} · ${g.status||'new'}</span>
+      ${g.verdict && g.verdict!=='clean' ? `<span class="pill ${g.verdict}">${g.verdict}</span>` : ''}
       <div class="note">${(g.reasons||[]).join(' · ')}</div>
+      ${(g.redFlags||[]).length ? `<div class="note" style="color:var(--bad)">⚠ ${(g.redFlags||[]).join(' · ')}</div>` : ''}
       <div class="acts">
         ${g.url ? `<a href="${g.url}" target="_blank"><button class="ghost sm">open gig ↗</button></a>` : ''}
         <button class="sm" onclick="openProposal('${g.id}')">✍ proposal</button>
@@ -194,29 +201,48 @@ async function setGig(id, status) {
 window.setGig = setGig;
 
 window.openProposal = async (id) => {
-  currentGigId = id;
+  currentGigId = id; currentVariants = [];
+  $('vtabs').style.display = 'none'; $('vtabs').innerHTML = '';
   $('propStatus').textContent = 'loading…';
   $('propDlg').showModal();
   const g = await fetch(`/gigs/${id}`).then(r => r.json());
   $('propTitle').textContent = g.title;
-  if (g.proposal) { $('propBody').value = g.proposal.body; $('propStatus').textContent = ''; }
-  else { await redraft(); }
+  if (g.proposal) { $('propBody').value = g.proposal.body; $('propStatus').textContent = `saved (${g.proposal.tone||'custom'})`; }
+  else { $('propBody').value = ''; $('propStatus').textContent = 'no draft yet — generate variants'; }
 };
 
-async function redraft() {
+$('variantsBtn').onclick = async () => {
+  $('propStatus').textContent = 'generating 3 tones…';
+  const out = await fetch(`/gigs/${currentGigId}/variants`, { method:'POST' }).then(r => r.json());
+  currentVariants = out.variants || [];
+  $('vtabs').style.display = 'flex';
+  $('vtabs').innerHTML = currentVariants.map((v,i) => `<button class="${i===0?'on':''}" data-i="${i}">${v.tone}</button>`).join('');
+  showVariant(0);
+  $('propStatus').textContent = 'pick a tone, then save';
+};
+
+function showVariant(i) {
+  const v = currentVariants[i]; if (!v) return;
+  currentTone = v.tone;
+  $('propBody').value = v.body || v.error || '';
+  [...$('vtabs').children].forEach((b,bi)=>b.classList.toggle('on', bi===i));
+}
+$('vtabs').addEventListener('click', (e) => { if(e.target.tagName!=='BUTTON')return; showVariant(Number(e.target.dataset.i)); });
+
+$('saveProposalBtn').onclick = async () => {
+  await fetch(`/gigs/${currentGigId}/proposal/select`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ body: $('propBody').value, tone: currentTone }) });
+  $('propStatus').textContent = 'saved ✓';
+};
+$('copyBtn').onclick = async () => { await navigator.clipboard.writeText($('propBody').value); $('propStatus').textContent = 'copied ✓'; };
+$('redraftBtn').onclick = async () => {
   $('propStatus').textContent = 'drafting…';
   const p = await fetch(`/gigs/${currentGigId}/proposal`, { method:'POST' }).then(r => r.json());
-  $('propBody').value = p.body || p.error || '';
-  $('propStatus').textContent = 'drafted ✓';
-}
-
-$('copyBtn').onclick = async () => { await navigator.clipboard.writeText($('propBody').value); $('propStatus').textContent = 'copied ✓'; };
-$('redraftBtn').onclick = redraft;
+  $('propBody').value = p.body || p.error || ''; $('propStatus').textContent = 'drafted ✓';
+};
 
 $('huntBtn').onclick = async () => { setStatus('hunting…'); await fetch('/hunt', { method: 'POST' }); await loadGigs(); await loadStats(); setStatus('hunt complete ✓'); };
 $('doctorBtn').onclick = async () => { setStatus('checking…'); const r = await fetch('/api/doctor').then(r=>r.json()); setStatus(r.results.map(x=>`${x.name}:${x.status}`).join('  ·  ')); };
 $('saveBtn').onclick = async () => { const keys=[...document.querySelectorAll('input[data-key]:checked')].map(i=>i.dataset.key); await fetch('/api/platforms',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({platforms:keys})}); setStatus('platforms saved ✓'); loadPlatforms(); };
-
 $('tabs').addEventListener('click', (e) => { if(e.target.tagName!=='BUTTON')return; filter=e.target.dataset.f; [...$('tabs').children].forEach(b=>b.classList.toggle('on',b===e.target)); loadGigs(); });
 
 loadHealth(); loadStats(); loadPlatforms(); loadGigs();
