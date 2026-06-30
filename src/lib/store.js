@@ -1,5 +1,5 @@
 // JSON-file store with gig STATUS tracking (new | seen | applied | won | rejected).
-// Status survives across hunts so you never lose track of what you acted on.
+// Status + timestamps survive across hunts so you never lose track of a lead.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -20,7 +20,6 @@ function read(file) { ensure(); return JSON.parse(fs.readFileSync(file, 'utf8'))
 function write(file, obj) { ensure(); fs.writeFileSync(file, JSON.stringify(obj, null, 2)); }
 
 export const store = {
-  // Upsert; preserves existing status, flags brand-new gigs as 'new'.
   upsertGigs(gigs) {
     const db = read(GIGS);
     let added = 0;
@@ -38,11 +37,22 @@ export const store = {
     return list.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
   },
   getGig(id) { return read(GIGS)[id] || null; },
+  // Generic patch for arbitrary fields (timestamps, follow-up counters, etc.).
+  patchGig(id, patch) {
+    const db = read(GIGS);
+    if (!db[id]) return null;
+    db[id] = { ...db[id], ...patch };
+    write(GIGS, db);
+    return db[id];
+  },
   setStatus(id, status) {
     if (!VALID_STATUS.includes(status)) throw new Error(`bad status: ${status}`);
     const db = read(GIGS);
     if (!db[id]) return null;
     db[id].status = status;
+    // Stamp the applied time so the follow-up engine knows when the clock started.
+    if (status === 'applied' && !db[id].appliedAt) db[id].appliedAt = new Date().toISOString();
+    if (status === 'won') db[id].wonAt = new Date().toISOString();
     write(GIGS, db);
     return db[id];
   },
