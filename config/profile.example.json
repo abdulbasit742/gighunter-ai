@@ -5,9 +5,7 @@
   "minBudgetUsd": 300,
   "preferredKeywords": ["saas", "automation", "ai", "whatsapp", "broadcast", "dashboard", "api", "integration"],
   "avoidKeywords": ["wordpress only", "unpaid", "equity only", "data entry"],
-  "sources": [
-    { "name": "RemoteOK", "type": "json", "url": "https://remoteok.com/api" },
-    { "name": "WeWorkRemotely-Programming", "type": "rss", "url": "https://weworkremotely.com/categories/remote-programming-jobs.rss" },
-    { "name": "HN-WhoIsHiring", "type": "rss", "url": "https://hnrss.org/newest?q=hiring+contract" }
-  ]
+
+  "_comment": "Pick platforms by key from the registry. Leave empty to auto-use all working public platforms. Keys: remoteok, weworkremotely, remotive, arbeitnow, jobicy, hackernews, reddit-forhire, themuse, freelancer, upwork, fiverr",
+  "platforms": ["remoteok", "weworkremotely", "remotive", "arbeitnow", "jobicy", "hackernews", "reddit-forhire"]
 }
