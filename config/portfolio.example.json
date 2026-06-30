@@ -1,0 +1,22 @@
+{
+  "samples": [
+    {
+      "title": "SuperSender Pro — WhatsApp broadcast SaaS",
+      "tags": ["whatsapp", "broadcast", "saas", "node.js", "postgres", "redis", "stripe", "multi-tenancy"],
+      "summary": "Built a multi-tenant WhatsApp broadcast platform: tenant-scoped Postgres data layer, Redis queue + rate limits, JWT auth with RBAC, and Stripe billing.",
+      "url": "https://github.com/abdulbasit742/supersenderpro"
+    },
+    {
+      "title": "GigHunter AI — autonomous freelancing agent",
+      "tags": ["ai", "automation", "node.js", "ollama", "embeddings", "dashboard"],
+      "summary": "AI agent that hunts gigs from 10 platforms, scores them with local LLM + embeddings, and drafts tailored proposals.",
+      "url": "https://github.com/abdulbasit742/gighunter-ai"
+    },
+    {
+      "title": "Laser Rate-Equation Simulation (LASERSIM)",
+      "tags": ["simulation", "physics", "modeling", "python"],
+      "summary": "Numerical platform modeling laser rate equations with configurable parameters and visualization.",
+      "url": ""
+    }
+  ]
+}
