@@ -18,6 +18,13 @@
   button:hover { filter:brightness(1.1); }
   button.ghost { background:transparent; border:1px solid var(--line); color:var(--txt); }
   button.sm { padding:5px 10px; font-size:12px; border-radius:7px; }
+  .statbar { display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:10px; margin-bottom:18px; }
+  .stat { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px 16px; }
+  .stat .n { font-size:24px; font-weight:900; }
+  .stat .l { font-size:12px; color:var(--mut); text-transform:uppercase; letter-spacing:.04em; margin-top:2px; }
+  .stat.win .n { color:var(--ok); }
+  .pipeline { display:flex; gap:6px; margin-bottom:18px; height:30px; border-radius:8px; overflow:hidden; border:1px solid var(--line); }
+  .pipeline div { display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; color:#0a0e17; }
   .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:12px; }
   .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:15px; }
   .card h3 { margin:0 0 6px; font-size:14px; }
@@ -26,6 +33,11 @@
   .pill.api { background:rgba(251,189,35,.15); color:var(--warn); }
   .pill.manual { background:rgba(139,151,176,.15); color:var(--mut); }
   .note { color:var(--mut); font-size:12.5px; margin-top:6px; }
+  .lead { background:var(--card); border:1px solid var(--line); border-radius:11px; padding:6px 14px; }
+  .lead table { width:100%; border-collapse:collapse; font-size:13px; }
+  .lead th, .lead td { text-align:left; padding:7px 8px; border-bottom:1px solid var(--line); }
+  .lead th { color:var(--mut); font-weight:600; font-size:11px; text-transform:uppercase; }
+  .lead tr:last-child td { border-bottom:0; }
   .gig { background:var(--card); border:1px solid var(--line); border-radius:11px; padding:15px; margin-bottom:10px; }
   .gig .score { font-weight:900; font-size:18px; color:var(--acc); }
   .gig.s-applied { opacity:.6; } .gig.s-rejected { opacity:.4; }
@@ -41,6 +53,8 @@
   .tabs { display:flex; gap:6px; }
   .tabs button { background:transparent; border:1px solid var(--line); color:var(--mut); }
   .tabs button.on { background:var(--acc); color:#fff; border-color:var(--acc); }
+  .chips { display:flex; gap:6px; flex-wrap:wrap; }
+  .chip { font-size:12px; background:rgba(91,140,255,.12); color:var(--acc); border:1px solid var(--line); padding:3px 10px; border-radius:999px; }
   dialog { background:var(--card); color:var(--txt); border:1px solid var(--line); border-radius:14px; padding:0; max-width:600px; width:92%; }
   dialog .dhead { padding:16px 18px; border-bottom:1px solid var(--line); display:flex; justify-content:space-between; align-items:center; }
   dialog .dbody { padding:18px; }
@@ -61,6 +75,15 @@
     <button class="ghost" id="saveBtn">💾 Save platforms</button>
     <span class="status" id="status"></span>
   </div>
+
+  <div class="statbar" id="statbar"></div>
+  <div class="pipeline" id="pipeline"></div>
+
+  <div class="secthead"><h2>Platform leaderboard</h2><span class="status">by wins, then win-rate</span></div>
+  <div class="lead" id="leaderboard"><div class="empty">Mark some gigs won/applied to see what's working.</div></div>
+
+  <div class="secthead"><h2>Winning keywords</h2></div>
+  <div class="chips" id="keywords"><span class="note">No wins logged yet.</span></div>
 
   <div class="secthead"><h2>Platforms</h2><span class="status" id="platStatus"></span></div>
   <div class="grid" id="platforms"></div>
@@ -94,10 +117,38 @@ const $ = (id) => document.getElementById(id);
 const setStatus = (t) => $('status').textContent = t;
 let filter = '';
 let currentGigId = null;
+const STAGE_COLORS = { new:'#5b8cff', seen:'#8b97b0', applied:'#fbbd23', won:'#36d399', rejected:'#f87272' };
 
 async function loadHealth() {
   const h = await fetch('/health').then(r => r.json());
   $('llmBadge').textContent = `llm: ${h.llm.provider}${h.llm.dryRun ? ' (dry-run)' : ''}`;
+}
+
+async function loadStats() {
+  const s = await fetch('/api/stats').then(r => r.json());
+  $('statbar').innerHTML = [
+    { n: s.totals.gigs, l: 'gigs' },
+    { n: s.totals.new, l: 'new' },
+    { n: s.totals.applied, l: 'applied' },
+    { n: s.totals.won, l: 'won' },
+    { n: (s.winRate*100).toFixed(0)+'%', l: 'win rate', win:true },
+    { n: s.avgScore, l: 'avg score' },
+  ].map(x => `<div class="stat ${x.win?'win':''}"><div class="n">${x.n}</div><div class="l">${x.l}</div></div>`).join('');
+
+  const total = s.pipeline.reduce((a,p)=>a+p.count,0) || 1;
+  $('pipeline').innerHTML = s.pipeline.filter(p=>p.count).map(p =>
+    `<div style="flex:${p.count}; background:${STAGE_COLORS[p.stage]||'#5b8cff'}" title="${p.stage}: ${p.count}">${p.count>=total*0.08?p.stage:''}</div>`
+  ).join('') || '<div style="flex:1;background:#243049;color:#8b97b0">no data</div>';
+
+  if (s.platforms.length) {
+    $('leaderboard').innerHTML = `<table>
+      <tr><th>Platform</th><th>Total</th><th>Applied</th><th>Won</th><th>Win rate</th><th>Avg score</th></tr>
+      ${s.platforms.map(p=>`<tr><td>${p.platform}</td><td>${p.total}</td><td>${p.applied}</td><td>${p.won}</td><td>${(p.winRate*100).toFixed(0)}%</td><td>${p.avgScore}</td></tr>`).join('')}
+    </table>`;
+  }
+  if (s.winningKeywords.length) {
+    $('keywords').innerHTML = s.winningKeywords.map(k=>`<span class="chip">${k.keyword} · ${k.count}</span>`).join('');
+  }
 }
 
 async function loadPlatforms() {
@@ -127,7 +178,7 @@ async function loadGigs() {
       <span class="note">· ${g.source} · ${g.status||'new'}</span>
       <div class="note">${(g.reasons||[]).join(' · ')}</div>
       <div class="acts">
-        ${g.url ? `<a class="sm" href="${g.url}" target="_blank"><button class="ghost sm">open gig ↗</button></a>` : ''}
+        ${g.url ? `<a href="${g.url}" target="_blank"><button class="ghost sm">open gig ↗</button></a>` : ''}
         <button class="sm" onclick="openProposal('${g.id}')">✍ proposal</button>
         <button class="ghost sm" onclick="setGig('${g.id}','applied')">mark applied</button>
         <button class="ghost sm" onclick="setGig('${g.id}','won')">won</button>
@@ -138,8 +189,9 @@ async function loadGigs() {
 
 async function setGig(id, status) {
   await fetch(`/gigs/${id}/status`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ status }) });
-  loadGigs();
+  loadGigs(); loadStats();
 }
+window.setGig = setGig;
 
 window.openProposal = async (id) => {
   currentGigId = id;
@@ -150,7 +202,6 @@ window.openProposal = async (id) => {
   if (g.proposal) { $('propBody').value = g.proposal.body; $('propStatus').textContent = ''; }
   else { await redraft(); }
 };
-window.setGig = setGig;
 
 async function redraft() {
   $('propStatus').textContent = 'drafting…';
@@ -162,13 +213,13 @@ async function redraft() {
 $('copyBtn').onclick = async () => { await navigator.clipboard.writeText($('propBody').value); $('propStatus').textContent = 'copied ✓'; };
 $('redraftBtn').onclick = redraft;
 
-$('huntBtn').onclick = async () => { setStatus('hunting…'); await fetch('/hunt', { method: 'POST' }); await loadGigs(); setStatus('hunt complete ✓'); };
+$('huntBtn').onclick = async () => { setStatus('hunting…'); await fetch('/hunt', { method: 'POST' }); await loadGigs(); await loadStats(); setStatus('hunt complete ✓'); };
 $('doctorBtn').onclick = async () => { setStatus('checking…'); const r = await fetch('/api/doctor').then(r=>r.json()); setStatus(r.results.map(x=>`${x.name}:${x.status}`).join('  ·  ')); };
 $('saveBtn').onclick = async () => { const keys=[...document.querySelectorAll('input[data-key]:checked')].map(i=>i.dataset.key); await fetch('/api/platforms',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({platforms:keys})}); setStatus('platforms saved ✓'); loadPlatforms(); };
 
 $('tabs').addEventListener('click', (e) => { if(e.target.tagName!=='BUTTON')return; filter=e.target.dataset.f; [...$('tabs').children].forEach(b=>b.classList.toggle('on',b===e.target)); loadGigs(); });
 
-loadHealth(); loadPlatforms(); loadGigs();
+loadHealth(); loadStats(); loadPlatforms(); loadGigs();
 </script>
 </body>
 </html>
