@@ -1,7 +1,8 @@
 // Score a gig 0-100 against the profile.
-// Three signals, blended: heuristic (free) + semantic embedding match + optional LLM refine.
+// Signals, blended: heuristic (free) + semantic embedding + adaptive (learned) + optional LLM.
 import { generate } from './llmHub.js';
 import { embed, cosine, profileVector } from './embeddings.js';
+import { adaptiveAdjust } from './adaptive.js';
 
 function text(gig) {
   return `${gig.title} ${gig.description}`.toLowerCase();
@@ -38,7 +39,6 @@ export function heuristicScore(gig, profile) {
   return { score: Math.max(0, Math.min(100, Math.round(score))), reasons, redFlags };
 }
 
-// Semantic similarity 0..1 -> contributes up to +25 to score.
 async function semanticBoost(gig, profile) {
   try {
     const pv = await profileVector(profile);
@@ -51,7 +51,7 @@ async function semanticBoost(gig, profile) {
   }
 }
 
-export async function scoreGig(gig, profile, { useLLM = false, useSemantic = true } = {}) {
+export async function scoreGig(gig, profile, { useLLM = false, useSemantic = true, model = null } = {}) {
   const base = heuristicScore(gig, profile);
   let score = base.score;
   const reasons = [...base.reasons];
@@ -62,7 +62,10 @@ export async function scoreGig(gig, profile, { useLLM = false, useSemantic = tru
     if (boost) { score = Math.min(100, score + boost); reasons.push(`semantic match ${sim}`); }
   }
 
-  // LLM refine only for borderline gigs (45-80) to save compute.
+  // Adaptive: learned from your own won/rejected history.
+  const { delta, reasons: aReasons } = adaptiveAdjust(gig, model);
+  if (delta) { score = Math.max(0, Math.min(100, score + delta)); reasons.push(...aReasons); }
+
   if (useLLM && score >= 45 && score <= 80) {
     const prompt = `Score this gig 0-100 for fit.\nProfile skills: ${(profile.skills||[]).join(', ')}. Min budget: $${profile.minBudgetUsd}.\nTitle: ${gig.title}\nDescription: ${gig.description}\nReturn ONLY JSON: {"score": number, "reasons": string[], "redFlags": string[]}`;
     try {
