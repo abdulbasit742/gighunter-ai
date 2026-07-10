@@ -1,0 +1,43 @@
+name: Workflow config smoke check
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - .github/workflows/dependency-review.yml
+
+permissions:
+  contents: read
+
+jobs:
+  workflow-config-smoke-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install YAML parser
+        run: pip install pyyaml
+
+      - name: Validate workflow structure
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import yaml
+
+          workflow_path = Path('.github/workflows/dependency-review.yml')
+          workflow = yaml.safe_load(workflow_path.read_text())
+
+          assert isinstance(workflow, dict), 'Workflow must parse into a mapping'
+          assert workflow.get('name'), 'Workflow name is required'
+          assert ('on' in workflow) or (True in workflow), 'Workflow triggers are required'
+          assert workflow.get('jobs'), 'Workflow jobs are required'
+          PY
