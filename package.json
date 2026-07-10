@@ -1,7 +1,7 @@
 {
   "name": "gighunter-ai",
-  "version": "2.1.0",
-  "description": "World-class autonomous freelancing agent: hunts 10 platforms, semantic AI matching, adaptive scoring, scam filter, budget intel, proposal variants, ClickUp sync, web dashboard + CLI.",
+  "version": "2.2.0",
+  "description": "Local-first freelancing agent: hunts public gigs, scores fit, drafts proposals, tracks follow-ups, and never auto-applies.",
   "type": "module",
   "main": "src/server.js",
   "bin": { "gighunter": "bin/gighunter.js" },
@@ -20,6 +20,6 @@
   "license": "MIT",
   "engines": { "node": ">=18" },
   "dependencies": {
-    "express": "^4.19.2"
+    "express": "^4.21.2"
   }
 }
