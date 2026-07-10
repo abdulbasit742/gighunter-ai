@@ -1,4 +1,4 @@
-name: Dependency review
+name: Production dependency audit
 
 on:
   pull_request:
@@ -7,14 +7,24 @@ on:
 
 permissions:
   contents: read
-  pull-requests: read
 
 jobs:
-  dependency-review:
+  dependency-audit:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+
     steps:
-      - name: Dependency review
-        uses: actions/dependency-review-action@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          fail-on-severity: high
-          warn-only: false
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=critical
