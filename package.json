@@ -13,7 +13,7 @@
     "doctor": "node scripts/doctor.js",
     "cli": "node bin/gighunter.js",
     "wire": "node scripts/wire-all.js",
-    "test": "node --test"
+    "test": "node --test --test-concurrency=1"
   },
   "keywords": ["freelance", "ai", "agent", "ollama", "embeddings", "semantic-search", "gigs", "proposals", "automation", "dashboard", "cli", "clickup"],
   "author": "Abdul Basit",
