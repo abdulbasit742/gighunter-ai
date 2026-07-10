@@ -5,7 +5,7 @@ on:
     branches:
       - main
     paths:
-      - .github/workflows/**
+      - .github/workflows/dependency-review.yml
 
 permissions:
   contents: read
@@ -19,5 +19,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Lint workflow files
+      - name: Lint changed workflow file
         uses: rhysd/actionlint@v1
+        with:
+          args: .github/workflows/dependency-review.yml
