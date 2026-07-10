@@ -1,151 +1,218 @@
-# 🎯 GigHunter AI
+<div align="center">
+  <img src="docs/hero.svg" alt="GigHunter AI: stop hunting gigs, make the gigs hunt you" width="100%" />
 
-> An autonomous freelancing agent that **hunts** freelance gigs from public sources, **scores** them against your profile using local AI, and **drafts** tailored proposals so you can apply in seconds.
+  <br />
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
-[![Node](https://img.shields.io/badge/node-%3E%3D18-brightgreen.svg)](https://nodejs.org)
-[![Status](https://img.shields.io/badge/status-ready--to--ship-blue.svg)]()
+  **Your local-first AI freelancing copilot. It finds public gigs, scores fit, filters scams, drafts proposals, and reminds you to follow up. You make the final call.**
 
----
+  [![CI](https://github.com/abdulbasit742/gighunter-ai/actions/workflows/ci.yml/badge.svg)](https://github.com/abdulbasit742/gighunter-ai/actions/workflows/ci.yml)
+  [![Node 18+](https://img.shields.io/badge/Node.js-18%2B-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
+  [![Local AI](https://img.shields.io/badge/AI-Ollama-111827)](https://ollama.com/)
+  [![License: MIT](https://img.shields.io/badge/License-MIT-facc15.svg)](LICENSE)
+  [![PRs welcome](https://img.shields.io/badge/PRs-welcome-22c55e.svg)](CONTRIBUTING.md)
 
-## Why
-
-Finding good freelance work is a grind: tabs open across Upwork, RSS feeds, Hacker News "Who is hiring", remote boards. GigHunter AI does the boring part for you:
-
-1. **Aggregates** gigs from public, ToS-friendly sources (RSS / public APIs / job feeds).
-2. **Scores** each gig 0-100 against *your* skills, rates, and preferences using a local LLM (Ollama) — zero API cost, fully private.
-3. **Drafts** a personalized proposal for the high-scoring ones.
-4. **Serves** everything over a clean REST API + a one-command CLI "hunt".
-
-> ⚠️ GigHunter only reads **public** sources and **drafts** proposals. It never logs into or auto-submits on marketplaces (that violates their ToS and gets you banned). You stay in control of the final click.
+  [Quick start](#-60-second-start) · [How it works](#-how-it-works) · [CLI](#-one-cli-everything) · [Safety](#-built-to-help-not-spam) · [Contribute](CONTRIBUTING.md)
+</div>
 
 ---
 
-## Features
+## Freelancing has a discovery problem
 
-- 🔌 **Pluggable sources** — add any RSS/JSON feed in `config/profile.json`.
-- 🧠 **Local-first AI** — defaults to Ollama (`qwen2.5:32b`), with OpenAI / Anthropic / Gemini / Groq fallbacks. Same LLM hub pattern as a production app.
-- 🎯 **Smart scoring** — skill match, budget fit, freshness, and red-flag detection.
-- ✍️ **Proposal drafting** — tailored, human-sounding, never spammy.
-- 🗄️ **Zero-infra storage** — JSON store out of the box; swap to a DB later.
-- 🌐 **REST API** — `/gigs`, `/gigs/:id`, `/proposals/:id`, `/health`.
-- ⏰ **CLI hunter** — `npm run hunt` for a full cycle; cron it for daily leads.
-- ✅ **CI smoke tests** — GitHub Actions green out of the box.
+The best gig is often buried across ten tabs, posted while you were asleep, or lost behind fifty low-quality listings. Most tools "solve" this by auto-applying everywhere. That's a fast route to generic proposals, platform bans, and a wrecked reputation.
 
----
+**GigHunter takes the opposite approach:** automate research, not judgment.
 
-## Quick start
+```text
+public job feeds
+      ↓
+normalize + deduplicate
+      ↓
+fit score + budget intelligence + scam filter
+      ↓
+tailored proposal variants
+      ↓
+you review and submit
+      ↓
+follow-up reminders + win-rate learning
+```
+
+## ⚡ 60-second start
 
 ```bash
 git clone https://github.com/abdulbasit742/gighunter-ai.git
 cd gighunter-ai
 npm install
-cp .env.example .env
-cp config/profile.example.json config/profile.json
-# edit config/profile.json with your skills, rates, and feed URLs
-
-# (optional) point at your local Ollama
-# LLM_DEFAULT_PROVIDER=ollama  OLLAMA_HOST=http://127.0.0.1:11434  OLLAMA_MODEL=qwen2.5:32b
-
-npm run hunt      # run one hunt cycle, prints scored gigs + drafts
-npm start         # boot the REST API on http://localhost:3000
-npm test          # smoke tests
+npm run setup
+npm start
 ```
 
----
+Open **http://localhost:3000/app**.
 
-## Configuration
+Want terminal-only?
 
-Everything lives in `config/profile.json` (copy from the example):
-
-```json
-{
-  "name": "Abdul Basit",
-  "headline": "Full-stack & AI SaaS developer",
-  "skills": ["node.js", "react", "postgres", "saas", "ai", "whatsapp api", "stripe"],
-  "minBudgetUsd": 300,
-  "preferredKeywords": ["saas", "automation", "ai", "whatsapp", "dashboard"],
-  "avoidKeywords": ["wordpress only", "unpaid", "equity only"],
-  "sources": [
-    { "name": "RemoteOK", "type": "json", "url": "https://remoteok.com/api" },
-    { "name": "WWR-Programming", "type": "rss", "url": "https://weworkremotely.com/categories/remote-programming-jobs.rss" }
-  ]
-}
+```bash
+npm run cli -- hunt
+npm run cli -- list new 10
+npm run cli -- stats
 ```
 
-### Environment (`.env`)
+No cloud key required. GigHunter defaults to local Ollama and still has a deterministic dry-run mode for testing.
 
-| Key | Default | What it does |
+## ✨ What makes it different
+
+| Capability | What you get |
+|---|---|
+| **10-platform registry** | Public feeds work immediately, API sources activate when you add keys, drafting-only sources stay honest |
+| **Local-first AI** | Score and draft privately with Ollama, with optional cloud providers |
+| **Adaptive scoring** | Learns which platforms and keywords resemble your past wins |
+| **Scam filter** | Flags upfront fees, off-platform payment pressure, vague scope, and other red flags |
+| **Budget intelligence** | Understands `$50/hr`, `$2k-3k`, `€4k/month`, and compares pay with your floor |
+| **Near-duplicate collapse** | One opportunity instead of the same repost from three boards |
+| **Proposal variants** | Concise, warm, and technical angles, then you choose |
+| **Portfolio matching** | Pulls the most relevant proof from your past work |
+| **Follow-up engine** | Surfaces respectful day-3 and day-7 nudges |
+| **ClickUp bridge** | Pushes high-score opportunities into your workflow |
+| **Dashboard + CLI + API** | Use the interface that fits your day |
+
+## 🎯 How it works
+
+### 1. Hunt
+GigHunter reads ToS-friendly public feeds and APIs. It does not scrape behind logins.
+
+### 2. Rank
+Every opportunity gets a 0-100 fit score based on skills, preferences, freshness, budget, risk, and what historically converted for you.
+
+### 3. Draft
+Strong, clean opportunities get proposal variants grounded in the actual posting and your relevant portfolio work.
+
+### 4. Decide
+You review, edit, and submit yourself. GigHunter never presses the apply button.
+
+### 5. Learn
+Mark gigs as `seen`, `applied`, `won`, or `rejected`. The system improves its ranking and tells you where your time converts best.
+
+## 🖥 One CLI, everything
+
+```bash
+gighunter hunt                    # fetch, score, draft, digest
+gighunter list new 20             # inspect top new gigs
+gighunter show <id>               # gig + saved proposal
+gighunter draft <id>              # regenerate proposal
+gighunter status <id> applied     # move the pipeline
+gighunter stats                   # win rate + platform leaderboard
+gighunter doctor                  # live source health
+gighunter platforms               # integration registry
+```
+
+Run via `npm run cli -- <command>` before `npm link`.
+
+## 🛡 Built to help, not spam
+
+GigHunter is intentionally human-in-the-loop:
+
+- reads public feeds and official APIs only
+- never stores marketplace passwords
+- never logs into marketplaces
+- never auto-submits applications
+- blocks private/local feed URLs by default
+- binds locally by default
+- requires an API token if exposed publicly
+- keeps profile and lead data on your machine
+
+That constraint is the product. Better opportunities and better proposals beat more applications.
+
+## 🧠 Local AI setup
+
+```bash
+ollama pull qwen2.5:7b
+ollama serve
+```
+
+Then use:
+
+```env
+LLM_DEFAULT_PROVIDER=ollama
+OLLAMA_HOST=http://127.0.0.1:11434
+OLLAMA_MODEL=qwen2.5:7b
+OLLAMA_KEEP_ALIVE=-1
+```
+
+Cloud providers are optional fallbacks. For a zero-network test:
+
+```env
+LLM_DRY_RUN=true
+```
+
+## 🔌 Integration modes
+
+GigHunter labels every source honestly:
+
+- **Public:** works from open RSS/JSON feeds
+- **API:** works after adding the platform's official key/token
+- **Drafting-only:** GigHunter helps write, but does not pretend it can fetch or submit
+
+Run `npm run doctor` any time to see what is actually live.
+
+## 🌐 REST API
+
+| Method | Endpoint | Purpose |
 |---|---|---|
-| `PORT` | `3000` | API port |
-| `LLM_DEFAULT_PROVIDER` | `ollama` | `ollama` \| `openai` \| `anthropic` \| `gemini` \| `groq` \| `mock` |
-| `LLM_DRY_RUN` | `false` | `true` = no real LLM calls, returns deterministic stubs |
-| `OLLAMA_HOST` | `http://127.0.0.1:11434` | Local Ollama endpoint |
-| `OLLAMA_MODEL` | `qwen2.5:32b` | Local model |
-| `OPENAI_API_KEY` | – | Fallback provider |
-| `MIN_SCORE_TO_DRAFT` | `65` | Only draft proposals for gigs scoring >= this |
+| `GET` | `/health` | Service and LLM status |
+| `POST` | `/hunt` | Run one hunt cycle |
+| `GET` | `/gigs` | Ranked opportunities |
+| `GET` | `/gigs/:id` | Opportunity detail |
+| `POST` | `/gigs/:id/proposal` | Draft proposal |
+| `POST` | `/gigs/:id/status` | Update pipeline status |
+| `GET` | `/api/stats` | Conversion analytics |
+| `GET` | `/api/followups` | Follow-ups due |
+| `GET` | `/api/doctor` | Source health |
 
----
+The server binds to `127.0.0.1` by default. Set `GIGHUNTER_API_TOKEN` before using a public `HOST`.
 
-## API
+## 🧪 Quality
 
-| Method | Route | Description |
-|---|---|---|
-| `GET` | `/health` | Liveness + config summary |
-| `POST` | `/hunt` | Run a hunt cycle, returns scored gigs |
-| `GET` | `/gigs` | List stored gigs (sorted by score) |
-| `GET` | `/gigs/:id` | One gig with full detail |
-| `POST` | `/gigs/:id/proposal` | Draft (or re-draft) a proposal |
-| `GET` | `/proposals/:id` | Fetch a drafted proposal |
+The CI matrix runs independent suites for scoring, adaptive learning, analytics, budget parsing, deduplication, follow-ups, portfolio selection, proposal variants, scam filtering, production safety, and smoke coverage.
 
----
-
-## Daily automation
-
-Cron a daily hunt (6am):
-
-```cron
-0 6 * * *  cd /path/to/gighunter-ai && /usr/bin/node scripts/hunt.js >> hunt.log 2>&1
+```bash
+npm test
+npm run doctor
+npm run wire
 ```
 
----
+## 🗺 Project map
 
-## Architecture
-
-```
-src/
-  server.js          Express app + route wiring
-  lib/
-    llmHub.js        provider routing (ollama default, cloud fallbacks)
-    sources.js       fetch + normalize public gig feeds (rss/json)
-    scorer.js        score a gig 0-100 against your profile
-    proposal.js      draft a tailored proposal via the LLM hub
-    store.js         JSON-file persistence (swap for a DB later)
-    logger.js        tiny logger
-  routes/
-    gigsRoutes.js
-    proposalsRoutes.js
-    healthRoutes.js
-scripts/
-  hunt.js            one full hunt cycle (CLI / cron)
-  wire-all.js        verify env + config, print readiness
-config/
-  profile.example.json
-tests/
-  smoke.test.js
+```text
+bin/             unified CLI
+config/          your profile and platform choices
+docs/            setup, automation, budget, follow-up, CLI guides
+public/          local web dashboard
+scripts/         hunt cycle, setup wizard, doctor, digest
+src/lib/         scoring, sources, AI hub, storage, safety, analytics
+src/routes/      REST API
+tests/           deterministic regression suites
 ```
 
+## 🤝 Contributing
+
+Small, testable PRs win. Start with [CONTRIBUTING.md](CONTRIBUTING.md), run `npm test`, and keep the core promise intact: **draft better, never spam**.
+
+Good first contributions:
+
+- additional official/public feed adapters
+- SQLite/Postgres storage adapter
+- email or ClickUp Chat digest improvements
+- accessibility and mobile dashboard polish
+- more deterministic parsers and safety tests
+
+## ⭐ If this saves you one hour
+
+Star the repo so another freelancer finds it before opening ten job-board tabs tomorrow morning.
+
+If you build an adapter, integration, or better scoring rule, open a PR. Let's make finding good work less exhausting without turning the internet into proposal spam.
+
 ---
 
-## Roadmap
-
-- [ ] SQLite/Postgres store adapter
-- [ ] Email/Slack/ClickUp daily digest
-- [ ] Embeddings-based semantic match
-- [ ] Web dashboard (React)
-
----
-
-## License
-
-MIT © 2026 Abdul Basit. **Free for commercial use** — clone it, rebrand it, ship it, sell it.
+<div align="center">
+  MIT licensed. Free to use, fork, rebrand, and improve.<br />
+  Built by <a href="https://github.com/abdulbasit742">Abdul Basit</a>.
+</div>
