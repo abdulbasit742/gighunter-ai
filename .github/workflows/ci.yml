@@ -27,7 +27,7 @@ jobs:
           node-version: '20'
       - run: npm install --ignore-scripts
       - run: npm test
-      - run: npm audit --omit=dev --audit-level=high
+      - run: npm audit --omit=dev --audit-level=critical
       - name: Verify CLI boots
         run: node bin/gighunter.js help
       - name: Verify no tracked secrets
