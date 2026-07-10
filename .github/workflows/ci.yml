@@ -9,14 +9,15 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
   test:
+    name: test (${{ matrix.suite }})
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        suite: [adaptive, analytics, budget, dedupe, followups, portfolio, production, proposalVariants, scamFilter, smoke]
     env:
       NODE_ENV: test
       LLM_DRY_RUN: 'true'
@@ -26,4 +27,4 @@ jobs:
         with:
           node-version: '20'
       - run: npm install --ignore-scripts --audit=false
-      - run: npm test
+      - run: node --test tests/${{ matrix.suite }}.test.js
