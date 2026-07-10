@@ -1,74 +1,59 @@
-// Budget & rate intelligence.
-// Most gigs bury pay in free text ('$2k-3k', '50/hr', '€4000 month'). This pulls
-// a normalized USD figure out of any posting and compares it to YOUR target rate,
-// so you instantly know if a gig is worth your time.
-
-const CUR = { '$': 1, 'usd': 1, '€': 1.08, 'eur': 1.08, '£': 1.27, 'gbp': 1.27, '₹': 0.012, 'inr': 0.012 };
+// Budget and rate intelligence: parse common pay formats and compare them to profile targets.
+const CUR = { '$': 1, usd: 1, '€': 1.08, eur: 1.08, '£': 1.27, gbp: 1.27, '₹': 0.012, inr: 0.012 };
 
 function toUsd(amount, symbol) {
   const rate = CUR[(symbol || '$').toLowerCase()] ?? 1;
   return Math.round(amount * rate);
 }
 
-// Parse a money token like '$2,500', '3k', '50k', '€4000'.
 function parseAmount(raw) {
-  let s = raw.toLowerCase().replace(/[,\s]/g, '');
-  let mult = 1;
-  if (s.endsWith('k')) { mult = 1000; s = s.slice(0, -1); }
-  const n = parseFloat(s.replace(/[^0-9.]/g, ''));
-  return Number.isFinite(n) ? n * mult : null;
+  let value = String(raw).toLowerCase().replace(/[,\s]/g, '');
+  let multiplier = 1;
+  if (value.endsWith('k')) { multiplier = 1000; value = value.slice(0, -1); }
+  const number = Number.parseFloat(value.replace(/[^0-9.]/g, ''));
+  return Number.isFinite(number) ? number * multiplier : null;
 }
 
-// Extract budget info from gig text. Returns:
-// { usd, period: 'hour'|'month'|'project'|null, min, max, raw } or null.
 export function parseBudget(gig) {
-  if (gig.budgetUsd != null) return { usd: gig.budgetUsd, period: gig.budgetPeriod || null, min: gig.budgetUsd, max: gig.budgetUsd, raw: `${gig.budgetUsd}` };
-  const text = `${gig.title} ${gig.description}`;
+  if (gig.budgetUsd != null) return { usd: Number(gig.budgetUsd), period: gig.budgetPeriod || null, min: Number(gig.budgetUsd), max: Number(gig.budgetUsd), raw: String(gig.budgetUsd) };
+  const text = `${gig.title || ''} ${gig.description || ''}`;
+  const money = '([$€£₹]|usd|eur|gbp|inr)';
+  const amount = '([0-9][0-9.,]*\\s?k?)';
+  const range = `(?:\\s?(?:-|–|to)\\s?${money}?\\s?${amount})?`;
+  const period = '(?:\\s?(?:\\/|per)?\\s?(hour|hr|h|day|week|month|mo|year|yr|project|fixed))?';
+  const match = text.match(new RegExp(`${money}\\s?${amount}${range}${period}`, 'i'));
+  if (!match) return null;
 
-  // currency symbol or code + number, optional range, optional /period
-  const re = /([$€£₹]|usd|eur|gbp|inr)\s?([0-9][0-9.,]*\s?k?)(?:\s?[-–to]+\s?([$€£₹]|usd|eur|gbp|inr)?\s?([0-9][0-9.,]*\s?k?))?(?:\s?\/?\s?(hour|hr|h|day|week|month|mo|year|yr|project|fixed))?/i;
-  const m = text.match(re);
-  if (!m) return null;
-
-  const sym = m[1];
-  const a = parseAmount(m[2]);
-  const b = m[4] ? parseAmount(m[4]) : null;
-  if (a == null) return null;
-
-  const minUsd = toUsd(a, sym);
-  const maxUsd = b != null ? toUsd(b, m[3] || sym) : minUsd;
-  const periodRaw = (m[5] || '').toLowerCase();
-  const period = /h(ou)?r|^h$/.test(periodRaw) ? 'hour'
-    : /month|^mo$/.test(periodRaw) ? 'month'
-    : /year|^yr$/.test(periodRaw) ? 'year'
-    : /day/.test(periodRaw) ? 'day'
-    : /week/.test(periodRaw) ? 'week'
-    : (periodRaw === 'project' || periodRaw === 'fixed') ? 'project'
+  const first = parseAmount(match[2]);
+  const second = match[4] ? parseAmount(match[4]) : null;
+  if (first == null) return null;
+  const min = toUsd(first, match[1]);
+  const max = second == null ? min : toUsd(second, match[3] || match[1]);
+  const rawPeriod = String(match[5] || '').toLowerCase();
+  const normalizedPeriod = /^(hour|hr|h)$/.test(rawPeriod) ? 'hour'
+    : /^(month|mo)$/.test(rawPeriod) ? 'month'
+    : /^(year|yr)$/.test(rawPeriod) ? 'year'
+    : rawPeriod === 'day' ? 'day'
+    : rawPeriod === 'week' ? 'week'
+    : /^(project|fixed)$/.test(rawPeriod) ? 'project'
     : null;
-
-  return { usd: Math.round((minUsd + maxUsd) / 2), period, min: minUsd, max: maxUsd, raw: m[0].trim() };
+  return { usd: Math.round((min + max) / 2), period: normalizedPeriod, min, max, raw: match[0].trim() };
 }
 
-// Compare a gig's pay to the user's target. profile.targetHourlyUsd and/or
-// profile.minBudgetUsd drive this. Returns { verdict, note } where verdict is
-// 'great' | 'ok' | 'low' | 'unknown'.
 export function rateVerdict(gig, profile) {
-  const b = parseBudget(gig);
-  if (!b) return { verdict: 'unknown', note: 'no pay listed' };
-
-  const targetHr = profile.targetHourlyUsd || null;
-  const minProj = profile.minBudgetUsd || null;
-
-  if (b.period === 'hour' && targetHr) {
-    if (b.usd >= targetHr * 1.25) return { verdict: 'great', note: `$${b.usd}/hr vs target $${targetHr}` };
-    if (b.usd >= targetHr * 0.9) return { verdict: 'ok', note: `$${b.usd}/hr near target $${targetHr}` };
-    return { verdict: 'low', note: `$${b.usd}/hr below target $${targetHr}` };
+  const budget = parseBudget(gig);
+  if (!budget) return { verdict: 'unknown', note: 'no pay listed' };
+  const targetHourly = profile.targetHourlyUsd || null;
+  const minimumProject = profile.minBudgetUsd || null;
+  if (budget.period === 'hour' && targetHourly) {
+    if (budget.usd >= targetHourly * 1.25) return { verdict: 'great', note: `$${budget.usd}/hr vs target $${targetHourly}` };
+    if (budget.usd >= targetHourly * 0.9) return { verdict: 'ok', note: `$${budget.usd}/hr near target $${targetHourly}` };
+    return { verdict: 'low', note: `$${budget.usd}/hr below target $${targetHourly}` };
   }
-  // project / month / unknown-period: compare to min project budget
-  if (minProj) {
-    if (b.usd >= minProj * 2) return { verdict: 'great', note: `~$${b.usd} (${b.period||'project'})` };
-    if (b.usd >= minProj) return { verdict: 'ok', note: `~$${b.usd} (${b.period||'project'})` };
-    return { verdict: 'low', note: `~$${b.usd} below min $${minProj}` };
+  if (minimumProject) {
+    if (budget.usd >= minimumProject * 2) return { verdict: 'great', note: `~$${budget.usd} (${budget.period || 'project'})` };
+    if (budget.usd >= minimumProject) return { verdict: 'ok', note: `~$${budget.usd} (${budget.period || 'project'})` };
+    return { verdict: 'low', note: `~$${budget.usd} below min $${minimumProject}` };
   }
-  return { verdict: 'unknown', note: `~$${b.usd} (no target set)` };
+  return { verdict: 'unknown', note: `~$${budget.usd} (no target set)` };
 }
