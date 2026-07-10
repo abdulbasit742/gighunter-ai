@@ -2,19 +2,36 @@ name: CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     env:
+      NODE_ENV: test
       LLM_DRY_RUN: 'true'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-      - run: npm install
+          cache: npm
+      - run: npm install --ignore-scripts
       - run: npm test
+      - run: npm audit --omit=dev --audit-level=high
+      - name: Verify CLI boots
+        run: node bin/gighunter.js help
+      - name: Verify no tracked secrets
+        run: |
+          test ! -f .env
+          ! git grep -nE '(sk-[A-Za-z0-9]{20,}|SUPABASE_SERVICE_ROLE_KEY=.+|OPENAI_API_KEY=.+)' -- ':!*.example' ':!docs/*'
