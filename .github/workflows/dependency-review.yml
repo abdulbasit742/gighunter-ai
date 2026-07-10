@@ -38,6 +38,6 @@ jobs:
 
           assert isinstance(workflow, dict), 'Workflow must parse into a mapping'
           assert workflow.get('name'), 'Workflow name is required'
-          assert workflow.get('on'), 'Workflow triggers are required'
+          assert ('on' in workflow) or (True in workflow), 'Workflow triggers are required'
           assert workflow.get('jobs'), 'Workflow jobs are required'
           PY
