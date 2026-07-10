@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="520" viewBox="0 0 1200 520" role="img" aria-labelledby="title desc">
+  <title id="title">GigHunter AI</title><desc id="desc">Find better freelance gigs without living on job boards.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#090d18"/><stop offset="1" stop-color="#172554"/></linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#60a5fa"/><stop offset="1" stop-color="#a78bfa"/></linearGradient>
+    <filter id="glow"><feGaussianBlur stdDeviation="18"/></filter>
+  </defs>
+  <rect width="1200" height="520" rx="28" fill="url(#bg)"/>
+  <circle cx="1030" cy="70" r="170" fill="#2563eb" opacity=".18" filter="url(#glow)"/>
+  <circle cx="130" cy="470" r="190" fill="#7c3aed" opacity=".16" filter="url(#glow)"/>
+  <g transform="translate(90 72)">
+    <rect width="70" height="70" rx="20" fill="url(#accent)"/>
+    <circle cx="35" cy="35" r="19" fill="none" stroke="#fff" stroke-width="6"/><path d="M49 49l17 17" stroke="#fff" stroke-width="7" stroke-linecap="round"/>
+  </g>
+  <text x="180" y="122" fill="#f8fafc" font-family="Inter,Segoe UI,sans-serif" font-size="52" font-weight="800">GigHunter AI</text>
+  <text x="90" y="215" fill="#f8fafc" font-family="Inter,Segoe UI,sans-serif" font-size="54" font-weight="800">Stop hunting gigs.</text>
+  <text x="90" y="278" fill="url(#accent)" font-family="Inter,Segoe UI,sans-serif" font-size="54" font-weight="800">Make the gigs hunt you.</text>
+  <text x="90" y="336" fill="#aab7cc" font-family="Inter,Segoe UI,sans-serif" font-size="24">Public feeds → AI fit score → scam filter → tailored proposal → follow-up</text>
+  <g transform="translate(90 382)" font-family="Inter,Segoe UI,sans-serif" font-size="18" font-weight="700">
+    <rect width="155" height="48" rx="24" fill="#172033" stroke="#334155"/><text x="27" y="31" fill="#93c5fd">LOCAL-FIRST</text>
+    <rect x="170" width="178" height="48" rx="24" fill="#172033" stroke="#334155"/><text x="198" y="31" fill="#c4b5fd">10 PLATFORMS</text>
+    <rect x="363" width="210" height="48" rx="24" fill="#172033" stroke="#334155"/><text x="389" y="31" fill="#86efac">NEVER AUTO-APPLIES</text>
+  </g>
+</svg>
