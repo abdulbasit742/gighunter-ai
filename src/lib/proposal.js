@@ -1,7 +1,7 @@
 // Draft tailored, human-sounding proposals using the LLM hub.
-// Portfolio-aware + supports multiple tone variants so you can pick the best angle.
 import { generate } from './llmHub.js';
 import { relevantSamples } from './portfolio.js';
+import { proposalMessages, validateDraftOutput } from './promptSafety.js';
 
 export const TONES = {
   concise: 'Punchy and direct. 80-110 words. Lead with the outcome you deliver. No fluff.',
@@ -11,43 +11,40 @@ export const TONES = {
 
 function buildPrompt(gig, profile, tone) {
   const samples = relevantSamples(gig, 2);
-  const proofBlock = samples.length
-    ? `\nRelevant past work to reference (weave in ONE naturally, never as a list):\n${samples.map((s) => `- ${s.title}: ${s.summary}${s.url ? ` (${s.url})` : ''}`).join('\n')}`
-    : '';
-  return {
-    samples,
-    prompt: [
-      `You are ${profile.name}, ${profile.headline}.`,
-      `Write a freelance proposal for the gig below.`,
-      `TONE: ${TONES[tone] || TONES.warm}`,
-      `Rules: no buzzwords, no "Dear Sir/Madam", reference one concrete detail from the posting, end with a light call to action. Never invent fake client names or metrics.`,
-      `Your relevant skills: ${(profile.skills || []).join(', ')}.`,
-      proofBlock,
-      ``,
-      `GIG TITLE: ${gig.title}`,
-      `GIG DESCRIPTION: ${gig.description}`,
-    ].join('\n'),
-  };
+  const proofLines = samples.map((sample) =>
+    `${sample.title}: ${sample.summary}${sample.url ? ` (${sample.url})` : ''}`
+  );
+  const messages = proposalMessages(gig, profile, TONES[tone] || TONES.warm, proofLines);
+  return { samples, ...messages };
 }
 
 export async function draftProposal(gig, profile, { tone = 'warm' } = {}) {
-  const { prompt, samples } = buildPrompt(gig, profile, tone);
-  const body = await generate(prompt);
+  const { system, user, samples, assessment } = buildPrompt(gig, profile, tone);
+  const body = validateDraftOutput(await generate({ system, user }));
   return {
     gigId: gig.id,
-    gigTitle: gig.title,
+    gigTitle: assessment.title,
     tone,
     body,
-    citedSamples: samples.map((s) => s.title),
+    citedSamples: samples.map((sample) => sample.title),
+    safety: { risk: assessment.risk, flags: assessment.flags.map((flag) => flag.id) },
     draftedAt: new Date().toISOString(),
   };
 }
 
-// Generate several tone variants in parallel so the user can choose the best.
 export async function draftVariants(gig, profile, tones = ['concise', 'warm', 'technical']) {
   const results = await Promise.all(tones.map(async (tone) => {
-    try { return await draftProposal(gig, profile, { tone }); }
-    catch (e) { return { gigId: gig.id, tone, body: '', error: e.message }; }
+    try {
+      return await draftProposal(gig, profile, { tone });
+    } catch (error) {
+      return {
+        gigId: gig.id,
+        tone,
+        body: '',
+        error: error.message,
+        errorCode: error.code || 'draft_failed',
+      };
+    }
   }));
   return { gigId: gig.id, gigTitle: gig.title, variants: results, draftedAt: new Date().toISOString() };
 }
