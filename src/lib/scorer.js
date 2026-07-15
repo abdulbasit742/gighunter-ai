@@ -1,18 +1,19 @@
 // Score a gig 0-100 against the profile.
-// Signals, blended: heuristic (free) + semantic embedding + adaptive (learned) + optional LLM.
 import { generate } from './llmHub.js';
 import { embed, cosine, profileVector } from './embeddings.js';
 import { adaptiveAdjust } from './adaptive.js';
+import { assessGigContent, scoringMessages, validateScoreResponse } from './promptSafety.js';
 
-function text(gig) {
-  return `${gig.title} ${gig.description}`.toLowerCase();
+function safeGigText(gig) {
+  const assessment = assessGigContent(gig);
+  return { assessment, text: `${assessment.title} ${assessment.description}`.toLowerCase() };
 }
 
 export function heuristicScore(gig, profile) {
-  const t = text(gig);
+  const { assessment, text: t } = safeGigText(gig);
   let score = 30;
   const reasons = [];
-  const redFlags = [];
+  const redFlags = assessment.flags.map((flag) => `content safety: ${flag.id}`);
 
   const skillHits = (profile.skills || []).filter((s) => t.includes(s.toLowerCase()));
   score += Math.min(35, skillHits.length * 9);
@@ -36,14 +37,21 @@ export function heuristicScore(gig, profile) {
     else if (ageDays > 30) { score -= 8; redFlags.push('stale (>30d)'); }
   }
 
-  return { score: Math.max(0, Math.min(100, Math.round(score))), reasons, redFlags };
+  if (assessment.risk === 'high') score = Math.min(score, 35);
+  return {
+    score: Math.max(0, Math.min(100, Math.round(score))),
+    reasons,
+    redFlags,
+    contentSafety: { risk: assessment.risk, flags: assessment.flags.map((flag) => flag.id) },
+  };
 }
 
 async function semanticBoost(gig, profile) {
   try {
+    const assessment = assessGigContent(gig);
     const pv = await profileVector(profile);
     if (!pv) return { boost: 0, sim: null };
-    const gv = await embed(`${gig.title}. ${gig.description}`);
+    const gv = await embed(`${assessment.title}. ${assessment.description}`);
     const sim = cosine(pv, gv);
     return { boost: Math.round(sim * 25), sim: Number(sim.toFixed(3)) };
   } catch {
@@ -62,19 +70,25 @@ export async function scoreGig(gig, profile, { useLLM = false, useSemantic = tru
     if (boost) { score = Math.min(100, score + boost); reasons.push(`semantic match ${sim}`); }
   }
 
-  // Adaptive: learned from your own won/rejected history.
   const { delta, reasons: aReasons } = adaptiveAdjust(gig, model);
   if (delta) { score = Math.max(0, Math.min(100, score + delta)); reasons.push(...aReasons); }
 
-  if (useLLM && score >= 45 && score <= 80) {
-    const prompt = `Score this gig 0-100 for fit.\nProfile skills: ${(profile.skills||[]).join(', ')}. Min budget: $${profile.minBudgetUsd}.\nTitle: ${gig.title}\nDescription: ${gig.description}\nReturn ONLY JSON: {"score": number, "reasons": string[], "redFlags": string[]}`;
+  if (useLLM && base.contentSafety.risk !== 'high' && score >= 45 && score <= 80) {
     try {
-      const parsed = JSON.parse(await generate(prompt, { json: true }));
-      score = Math.round((score + Math.max(0, Math.min(100, parsed.score ?? score))) / 2);
-      for (const r of parsed.reasons || []) if (!reasons.includes(r)) reasons.push(r);
-      for (const f of parsed.redFlags || []) if (!redFlags.includes(f)) redFlags.push(f);
-    } catch { /* keep blended score */ }
+      const { system, user } = scoringMessages(gig, profile);
+      const parsed = validateScoreResponse(await generate({ system, user }, { json: true }));
+      score = Math.round((score + parsed.score) / 2);
+      for (const reason of parsed.reasons) if (!reasons.includes(reason)) reasons.push(reason);
+      for (const flag of parsed.redFlags) if (!redFlags.includes(flag)) redFlags.push(flag);
+    } catch {
+      // Keep deterministic score when model output is unavailable or invalid.
+    }
   }
 
-  return { score: Math.max(0, Math.min(100, score)), reasons, redFlags };
+  return {
+    score: Math.max(0, Math.min(100, score)),
+    reasons,
+    redFlags,
+    contentSafety: base.contentSafety,
+  };
 }
