@@ -17,7 +17,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        suite: [adaptive, analytics, budget, dedupe, followups, portfolio, production, proposalVariants, scamFilter, smoke]
+        suite: [adaptive, analytics, budget, dedupe, followups, portfolio, production, proposalVariants, promptSafety, scamFilter, smoke]
     env:
       NODE_ENV: test
       LLM_DRY_RUN: 'true'
@@ -28,3 +28,4 @@ jobs:
           node-version: '20'
       - run: npm install --ignore-scripts --audit=false
       - run: node --test tests/${{ matrix.suite }}.test.js
+      - run: npm run security-check
