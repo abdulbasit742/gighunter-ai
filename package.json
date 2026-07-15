@@ -1,6 +1,6 @@
 {
   "name": "gighunter-ai",
-  "version": "2.2.0",
+  "version": "2.3.0",
   "description": "Local-first freelancing agent: hunts public gigs, scores fit, drafts proposals, tracks follow-ups, and never auto-applies.",
   "type": "module",
   "main": "src/server.js",
@@ -13,7 +13,9 @@
     "doctor": "node scripts/doctor.js",
     "cli": "node bin/gighunter.js",
     "wire": "node scripts/wire-all.js",
-    "test": "node --test --test-concurrency=1"
+    "test": "node --test --test-concurrency=1",
+    "security-check": "node scripts/prompt-safety-check.mjs",
+    "check": "npm test && npm run security-check"
   },
   "keywords": ["freelance", "ai", "agent", "ollama", "embeddings", "semantic-search", "gigs", "proposals", "automation", "dashboard", "cli", "clickup"],
   "author": "Abdul Basit",
